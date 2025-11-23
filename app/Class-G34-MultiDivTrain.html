@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數學練習（乘法與除法）</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Inter 字體 */
+        body {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        /* 自定義樣式，使 disabled 按鈕外觀更明顯 */
+        button:disabled {
+            opacity: 1 !important;
+        }
+        /* 禁用 checkbox 的樣式 */
+        input[type="checkbox"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 md:p-10">
+
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-8">
+            數學練習
+        </h1>
+
+        <!-- 控制區域 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            
+            <!-- 左側：運算模式 -->
+            <div class="flex flex-col space-y-4">
+                <label class="text-lg font-semibold text-gray-700">選擇運算：</label>
+                <div class="flex space-x-2">
+                    <button id="mulBtn" class="flex-1 py-3 px-4 font-medium rounded-lg shadow-md transition-all duration-200 bg-blue-600 text-white" disabled>
+                        乘法 (×)
+                    </button>
+                    <button id="divBtn" class="flex-1 py-3 px-4 font-medium rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
+                        除法 (÷)
+                    </button>
+                </div>
+                
+                <!-- 除法選項 -->
+                <div id="divisionOptionsContainer" class="hidden flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 pt-2">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="remainderMode" class="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
+                        <label for="remainderMode" class="text-base font-medium text-gray-700">餘數模式</label>
+                    </div>
+                    <!-- 新增：小數模式 -->
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="decimalMode" class="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
+                        <label for="decimalMode" class="text-base font-medium text-gray-700">小數模式</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側：位數設定 -->
+            <div class="flex flex-col space-y-4">
+                <label class="text-lg font-semibold text-gray-700">設定難度：</label>
+                <div class="flex items-center space-x-3">
+                    <label id="labelDigits1" for="digits1" class="w-28 text-base font-medium text-gray-600">數字 1：</label>
+                    <select id="digits1" class="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="1">1 位數</option>
+                        <option value="2" selected>2 位數</option>
+                        <option value="3">3 位數</option>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <label id="labelDigits2" for="digits2" class="w-28 text-base font-medium text-gray-600">數字 2：</label>
+                    <select id="digits2" class="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="1">1 位數</option>
+                        <option value="2">2 位數</option>
+                        <option value="3">3 位數</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 出題按鈕 -->
+        <div class="mb-8">
+            <button id="newProblemBtn" class="w-full py-3 px-6 bg-green-600 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-green-700 active:scale-95 transition-all duration-200">
+                出新題目
+            </button>
+        </div>
+
+        <!-- 練習區域 -->
+        <div class="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 text-center">
+            
+            <!-- 題目顯示 -->
+            <div id="problemDisplay" class="text-4xl md:text-5xl font-mono font-bold text-gray-800 mb-6 h-16 flex items-center justify-center">
+                <!-- 題目將顯示在這裡 -->
+            </div>
+
+            <!-- 顯示答案區域 -->
+            <div class="flex justify-center mt-6 mb-2">
+                <div class="relative w-full max-w-xs h-16">
+                    <!-- 隱藏的答案 -->
+                    <div id="correctAnswerDisplay" class="absolute inset-0 flex items-center justify-center text-3xl font-mono font-bold text-green-700 transition-opacity duration-300 opacity-0">
+                        <!-- 答案會在這裡 -->
+                    </div>
+                    <!-- 顯示答案的按鈕 (覆蓋層) -->
+                    <button id="showAnswerBtn" class="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-300 text-gray-700 font-semibold rounded-lg shadow hover:bg-gray-400 transition-all duration-300 opacity-100">
+                        點我看答案
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 底部互動區域 -->
+        <div class="mt-8 pt-6 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            
+            <!-- 左側：倒數計時設定 -->
+            <div class="flex items-center space-x-2">
+                <label for="timerSelect" class="text-base font-medium text-gray-700">倒數：</label>
+                <select id="timerSelect" class="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="5">5 秒</option>
+                    <option value="10">10 秒</option>
+                    <option value="15">15 秒</option>
+                    <option value="20">20 秒</option>
+                    <option value="25">25 秒</option>
+                    <option value="30" selected>30 秒</option>
+                    <option value="40">40 秒</option>
+                    <option value="60">60 秒</option>
+                </select>
+            </div>
+
+            <!-- 中間：抽籤系統 -->
+            <div class="flex flex-col items-center space-y-2">
+                <button id="lotteryBtn" class="w-full md:w-auto py-2 px-6 bg-purple-600 text-white font-semibold rounded-lg shadow-lg hover:bg-purple-700 active:scale-95 transition-all duration-200">
+                    開始抽籤重新出題
+                </button>
+                <div id="lotteryResult" class="text-3xl font-bold text-purple-700 h-8 flex items-center justify-center">-</div>
+            </div>
+
+            <!-- 右側：倒數計時顯示 -->
+            <div class="text-center md:text-right">
+                <div id="timerDisplay" class="text-3xl font-mono font-bold text-gray-800">30 秒</div>
+                <div id="timerEndMessage" class="hidden text-red-600 font-bold text-lg h-6">
+                    停止作答
+                </div>
+            </div>
+        </div>
+        <!-- 結束：底部互動區域 -->
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM 元素
+            const mulBtn = document.getElementById('mulBtn');
+            const divBtn = document.getElementById('divBtn');
+            const divisionOptionsContainer = document.getElementById('divisionOptionsContainer');
+            const remainderMode = document.getElementById('remainderMode');
+            const decimalMode = document.getElementById('decimalMode'); // 新增
+            const labelDigits1 = document.getElementById('labelDigits1');
+            const labelDigits2 = document.getElementById('labelDigits2');
+            const digits1 = document.getElementById('digits1');
+            const digits2 = document.getElementById('digits2');
+            const newProblemBtn = document.getElementById('newProblemBtn');
+            const problemDisplay = document.getElementById('problemDisplay');
+            
+            const correctAnswerDisplay = document.getElementById('correctAnswerDisplay');
+            const showAnswerBtn = document.getElementById('showAnswerBtn');
+
+            const timerSelect = document.getElementById('timerSelect');
+            const lotteryBtn = document.getElementById('lotteryBtn');
+            const lotteryResult = document.getElementById('lotteryResult');
+            const timerDisplay = document.getElementById('timerDisplay');
+            const timerEndMessage = document.getElementById('timerEndMessage');
+
+            // 狀態變數
+            let currentOperation = 'multiply'; // 'multiply' 或 'divide'
+            let correctAnswer = 0;
+            let correctRemainder = 0;
+
+            let timerId = null; // 用於存放 setInterval
+            let remainingTime = 30; // 預設 30 秒
+
+            // 確保有限小數的除數列表
+            const safeDivisors = {
+                1: [2, 4, 5, 8],
+                2: [10, 16, 20, 25, 32, 40, 50, 64, 80],
+                3: [100, 125, 128, 160, 200, 250, 256, 320, 400, 500, 512, 625, 640, 800]
+            };
+
+            // --- 事件監聽 ---
+
+            mulBtn.addEventListener('click', () => updateOperation('multiply'));
+            divBtn.addEventListener('click', () => updateOperation('divide'));
+            
+            remainderMode.addEventListener('change', () => {
+                if (remainderMode.checked) {
+                    decimalMode.checked = false;
+                    decimalMode.disabled = true;
+                } else {
+                    decimalMode.disabled = false;
+                }
+                generateProblem(false);
+            });
+            decimalMode.addEventListener('change', () => {
+                if (decimalMode.checked) {
+                    remainderMode.checked = false;
+                    remainderMode.disabled = true;
+                } else {
+                    remainderMode.disabled = false;
+                }
+                generateProblem(false);
+            });
+
+            newProblemBtn.addEventListener('click', () => generateProblem(false));
+            showAnswerBtn.addEventListener('click', showAnswer);
+            timerSelect.addEventListener('change', handleTimerSelect);
+            lotteryBtn.addEventListener('click', handleLotteryClick);
+
+
+            // --- 核心功能 ---
+
+            function updateOperation(op) {
+                currentOperation = op;
+                
+                if (op === 'multiply') {
+                    mulBtn.disabled = true;
+                    mulBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                    mulBtn.classList.add('bg-blue-600', 'text-white');
+                    divBtn.disabled = false;
+                    divBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                    divBtn.classList.remove('bg-blue-600', 'text-white');
+
+                    divisionOptionsContainer.classList.add('hidden'); // 隱藏除法選項
+                    labelDigits1.textContent = '數字 1：';
+                    labelDigits2.textContent = '數字 2：';
+                } else { // op === 'divide'
+                    divBtn.disabled = true;
+                    divBtn.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                    divBtn.classList.add('bg-blue-600', 'text-white');
+                    mulBtn.disabled = false;
+                    mulBtn.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                    mulBtn.classList.remove('bg-blue-600', 'text-white');
+
+                    divisionOptionsContainer.classList.remove('hidden'); // 顯示除法選項
+                    labelDigits1.textContent = '被除數 (位數)：';
+                    labelDigits2.textContent = '除數 (位數)：';
+                }
+                
+                generateProblem(false);
+            }
+
+            /**
+             * 根據設定生成新題目
+             * @param {boolean} isFromLottery - 判斷是否由抽籤按鈕觸發
+             */
+            function generateProblem(isFromLottery = false) {
+                
+                // 重置答案顯示
+                showAnswerBtn.classList.add('opacity-100');
+                showAnswerBtn.classList.remove('opacity-0', 'pointer-events-none');
+                correctAnswerDisplay.classList.add('opacity-0');
+                correctAnswerDisplay.classList.remove('opacity-100');
+                correctAnswerDisplay.textContent = ''; 
+
+                // 重置計時器
+                if (timerId) {
+                    clearInterval(timerId);
+                    timerId = null;
+                }
+                remainingTime = parseInt(timerSelect.value);
+                timerDisplay.textContent = `${remainingTime} 秒`;
+                timerEndMessage.classList.add('hidden');
+                
+                // 重置抽籤
+                if (!isFromLottery) {
+                    lotteryResult.textContent = '-';
+                    lotteryBtn.textContent = '開始抽籤重新出題';
+                }
+                
+                lotteryBtn.disabled = false;
+                timerSelect.disabled = false;
+
+                const d1_digits = parseInt(digits1.value);
+                const d2_digits = parseInt(digits2.value);
+                const useRemainder = remainderMode.checked;
+                const useDecimal = decimalMode.checked; 
+
+                let dividend, divisor, quotient;
+
+                if (currentOperation === 'multiply') {
+                    const num1 = getRandomNumber(d1_digits);
+                    const num2 = getRandomNumber(d2_digits);
+                    
+                    correctAnswer = num1 * num2;
+                    problemDisplay.textContent = `${num1} × ${num2} = ?`;
+                    correctAnswerDisplay.textContent = `${correctAnswer}`;
+                    
+                } else { // currentOperation === 'divide'
+                    
+                    if (useDecimal) {
+                        // --- 小數模式 ---
+                        divisor = getTerminatingDivisor(d2_digits);
+                        dividend = getRandomNumber(d1_digits);
+                        
+                        correctAnswer = dividend / divisor;
+                        // 清理浮點數 (例如 1/8 = 0.125，避免 0.1250000)
+                        correctAnswer = parseFloat(correctAnswer.toFixed(5)); 
+                        
+                        problemDisplay.textContent = `${dividend} ÷ ${divisor} = ?`;
+                        correctAnswerDisplay.textContent = `${correctAnswer}`;
+
+                    } else if (useRemainder) {
+                        // --- 餘數模式 ---
+                        divisor = getRandomNumber(d2_digits);
+                        dividend = getRandomNumber(d1_digits);
+                        
+                        // 確保有餘數
+                        while (dividend % divisor === 0) {
+                            dividend = getRandomNumber(d1_digits);
+                            // 避免無限循環 (例如 d1=1, d2=2 -> 5 % 10 永不為 0)
+                            if (dividend < divisor && dividend !== 0) break;
+                        }
+                        
+                        correctAnswer = Math.floor(dividend / divisor);
+                        correctRemainder = dividend % divisor;
+                        
+                        problemDisplay.textContent = `${dividend} ÷ ${divisor} = ?`;
+                        correctAnswerDisplay.textContent = `${correctAnswer} ... ${correctRemainder}`;
+
+                    } else {
+                        // --- 整除模式 (已修正) ---
+                        // d1 = 被除數位數, d2 = 除數位數
+                        
+                        divisor = getRandomNumber(d2_digits);
+                        
+                        // 尋找一個商(quotient)的範圍，使得 (quotient * divisor) 的結果符合 d1_digits (被除數位數)
+                        const min_dividend = Math.max(1, Math.pow(10, d1_digits - 1));
+                        const max_dividend = Math.pow(10, d1_digits) - 1;
+
+                        let min_quotient = Math.ceil(min_dividend / divisor);
+                        let max_quotient = Math.floor(max_dividend / divisor);
+
+                        if (min_quotient > max_quotient) {
+                            // 發生這種情況是因為 d1_digits < d2_digits (例如: 5 ÷ 10)
+                            // 商(quotient) 必定為 0
+                            quotient = 0;
+                            // 我們仍然從 d1 範圍內隨機選一個被除數
+                            dividend = getRandomNumber(d1_digits);
+                            // 確保 divisor 確實大於 dividend (主要針對 d1=1, d2=1 的情況)
+                            if (dividend >= divisor) {
+                                // 如果 9 / 8 (d1=1, d2=1), min_q=1, max_q=1, 不會進入此區塊
+                                // 如果 5 / 10 (d1=1, d2=2), min_q=1, max_q=0, 會進入此區塊
+                                // 邏輯正確
+                            }
+
+                        } else {
+                            // 找到了一個有效的商(quotient)範圍
+                            // 從 [min_quotient, max_quotient] 中隨機取值
+                            quotient = Math.floor(Math.random() * (max_quotient - min_quotient + 1)) + min_quotient;
+                            dividend = quotient * divisor;
+                        }
+                        
+                        correctAnswer = quotient;
+                        
+                        problemDisplay.textContent = `${dividend} ÷ ${divisor} = ?`;
+                        correctAnswerDisplay.textContent = `${correctAnswer}`;
+                    }
+                }
+            }
+
+            function showAnswer() {
+                showAnswerBtn.classList.remove('opacity-100');
+                showAnswerBtn.classList.add('opacity-0', 'pointer-events-none');
+                correctAnswerDisplay.classList.remove('opacity-0');
+                correctAnswerDisplay.classList.add('opacity-100');
+            }
+
+
+            function handleTimerSelect() {
+                remainingTime = parseInt(timerSelect.value);
+                timerDisplay.textContent = `${remainingTime} 秒`;
+                if (timerId) {
+                    clearInterval(timerId);
+                    timerId = null;
+                }
+                timerEndMessage.classList.add('hidden');
+                lotteryBtn.disabled = false;
+                timerSelect.disabled = false;
+            }
+
+            function handleLotteryClick() {
+                const randomNum = Math.floor(Math.random() * 30) + 1;
+                lotteryResult.textContent = randomNum;
+                generateProblem(true);
+                startTimer();
+                lotteryBtn.textContent = '重新抽籤';
+            }
+
+            function startTimer() {
+                if (timerId) {
+                    clearInterval(timerId);
+                }
+                
+                remainingTime = parseInt(timerSelect.value);
+                timerDisplay.textContent = `${remainingTime} 秒`;
+                timerEndMessage.classList.add('hidden');
+                
+                // lotteryBtn.disabled = true; // <-- 已移除：允許在計時期間重新抽籤
+                timerSelect.disabled = true;
+
+                timerId = setInterval(() => {
+                    remainingTime--;
+                    timerDisplay.textContent = `${remainingTime} 秒`;
+                    
+                    if (remainingTime <= 0) {
+                        clearInterval(timerId);
+                        timerId = null;
+                        timerDisplay.textContent = '0 秒';
+                        timerEndMessage.classList.remove('hidden');
+                        
+                        // lotteryBtn.disabled = false; // <-- 已移除
+                        timerSelect.disabled = false;
+                    }
+                }, 1000);
+            }
+
+            /**
+             * 根據指定的位數生成一個隨機數
+             * @param {number} digits - 位數 (1, 2, 3...)
+             * @returns {number} 隨機整數
+             */
+            function getRandomNumber(digits) {
+                const min = Math.pow(10, digits - 1);
+                const max = Math.pow(10, digits) - 1;
+                
+                // 處理 1 位數的 min (Math.pow(10, 0) = 1)
+                const adjustedMin = Math.max(1, min);
+
+                // 避免除數為 1 (在"整除"和"餘數"模式下)
+                if (currentOperation === 'divide' && digits === 1 && !decimalMode.checked && labelDigits2.textContent.includes('除數')) {
+                    // 讓 1 位數的除數是 2-9
+                    return Math.floor(Math.random() * 8) + 2; 
+                }
+
+                return Math.floor(Math.random() * (max - adjustedMin + 1)) + adjustedMin;
+            }
+
+            /**
+             * 獲取一個保證有限小數的除數
+             * @param {number} digits - 位數 (1, 2, 3...)
+             * @returns {number} 隨機的"安全"除數
+             */
+            function getTerminatingDivisor(digits) {
+                const list = safeDivisors[digits] || safeDivisors[1]; // 如果 d2=3 但列表為空，則使用 d1 的列表
+                return list[Math.floor(Math.random() * list.length)];
+            }
+
+
+            // --- 初始啟動 ---
+            generateProblem(false); // 頁面載入時自動出第一題
+        });
+    </script>
+</body>
+</html>
