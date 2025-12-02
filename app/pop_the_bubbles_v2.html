@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滑鼠特訓：氣球大亂鬥</title>
+    <!-- 引入可愛的圓體字型 -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-sky-top: #A1C4FD;
+            --bg-sky-bottom: #C2E9FB;
+            --blue-bubble-1: #4facfe;
+            --blue-bubble-2: #00f2fe;
+            --red-bubble-1: #ff9a9e;
+            --red-bubble-2: #fecfef;
+            --text-color: #5D5D5D;
+            --ui-bg: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Fredoka One', 'Noto Sans TC', cursive;
+            background: linear-gradient(180deg, var(--bg-sky-top) 0%, var(--bg-sky-bottom) 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            /* 將鼠標顏色從白色改為黑色 (%23FFF -> %23000) */
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>') 12 12, crosshair;
+        }
+
+        /* 背景裝飾 - 雲朵 */
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50px;
+            animation: moveCloud linear infinite;
+            z-index: 0;
+        }
+        @keyframes moveCloud {
+            from { transform: translateX(-200px); }
+            to { transform: translateX(110vw); }
+        }
+
+        #game-container {
+            position: relative;
+            width: 900px;
+            height: 650px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 8px solid white;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            z-index: 1;
+        }
+
+        /* 介面 HUD */
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .hud-panel {
+            background: var(--ui-bg);
+            padding: 10px 25px;
+            border-radius: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            font-size: 28px;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 3px solid white;
+        }
+
+        /* 遊戲遮罩 (開始/結束) */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: var(--text-color);
+            text-align: center;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
+        }
+
+        h1 {
+            font-size: 56px;
+            margin: 0 0 20px 0;
+            background: linear-gradient(45deg, #ff9a9e, #fad0c4, #84fab0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.1));
+            letter-spacing: 2px;
+        }
+
+        .instructions {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            font-size: 22px;
+            line-height: 1.8;
+            color: #666;
+        }
+
+        .key-badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+        }
+        .bg-blue { background: #4facfe; }
+        .bg-red { background: #ff9a9e; }
+        .bg-yellow { background: #f6d365; color: #5D5D5D; }
+        .bg-black { background: #434343; }
+
+        button.start-btn {
+            padding: 15px 60px;
+            font-size: 32px;
+            font-family: 'Fredoka One', cursive;
+            background: linear-gradient(45deg, #84fab0 0%, #8fd3f4 100%);
+            color: white;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(132, 250, 176, 0.4), 0 5px 0 #68c48e;
+            transition: all 0.1s;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        button.start-btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 0 0 #68c48e;
+        }
+
+        /* 泡泡本體設計 */
+        .bubble {
+            position: absolute;
+            bottom: -120px;
+            border-radius: 50%;
+            cursor: inherit; /* 改為繼承，讓它維持靶心游標，不要變成手指 */
+            /* 讓泡泡有點透明感和立體高光 */
+            box-shadow: 
+                inset 10px 10px 20px rgba(255,255,255,0.5),
+                inset -10px -10px 20px rgba(0,0,0,0.05),
+                5px 10px 15px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 泡泡上的高光 (小白點) */
+        .bubble::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 20%;
+            width: 25%;
+            height: 15%;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            transform: rotate(-45deg);
+        }
+
+        .bubble.blue {
+            background: radial-gradient(circle at 50% 120%, #4facfe, #00f2fe);
+            border: 2px solid rgba(79, 172, 254, 0.3);
+        }
+
+        .bubble.red {
+            background: radial-gradient(circle at 50% 120%, #ff9a9e, #fecfef);
+            border: 2px solid rgba(255, 154, 158, 0.3);
+        }
+
+        .bubble.yellow {
+            background: radial-gradient(circle at 50% 120%, #f6d365, #fda085);
+            border: 2px solid rgba(246, 211, 101, 0.3);
+        }
+
+        .bubble.black {
+            background: radial-gradient(circle at 50% 120%, #434343, #000000);
+            border: 2px solid rgba(0, 0, 0, 0.3);
+        }
+
+        /* 粒子特效 */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: explode 0.6s forwards;
+        }
+
+        @keyframes explode {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+
+        /* 上升動畫 - 路徑1 (S型搖擺) */
+        @keyframes rise-1 {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(30px, -200px) rotate(5deg); }
+            50% { transform: translate(-20px, -400px) rotate(-5deg); }
+            75% { transform: translate(10px, -600px) rotate(2deg); }
+            100% { transform: translate(0, -800px) rotate(10deg); opacity: 0; }
+        }
+
+        /* 上升動畫 - 路徑2 (左飄) */
+        @keyframes rise-2 {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-40px, -250px) rotate(-5deg); }
+            66% { transform: translate(20px, -500px) rotate(5deg); }
+            100% { transform: translate(-10px, -800px) rotate(0deg); opacity: 0; }
+        }
+
+        /* 上升動畫 - 路徑3 (右飄) */
+        @keyframes rise-3 {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            40% { transform: translate(20px, -300px) rotate(3deg); }
+            70% { transform: translate(40px, -550px) rotate(6deg); }
+            100% { transform: translate(0px, -800px) rotate(0deg); opacity: 0; }
+        }
+        
+        /* 浮動文字 */
+        .floating-text {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+            pointer-events: none;
+            animation: floatUp 0.8s forwards;
+            white-space: nowrap;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            50% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1); opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 背景動態雲朵 -->
+    <div class="cloud" style="width: 200px; height: 60px; top: 10%; left: -20%; animation-duration: 25s;"></div>
+    <div class="cloud" style="width: 150px; height: 50px; top: 30%; left: -10%; animation-duration: 18s;"></div>
+    <div class="cloud" style="width: 250px; height: 80px; top: 60%; left: -30%; animation-duration: 30s;"></div>
+
+    <div id="game-container">
+        <!-- HUD -->
+        <div class="hud">
+            <div class="hud-panel">
+                <span>⭐</span> <span id="score-board">0</span>
+            </div>
+            <div class="hud-panel">
+                <span>⏰</span> <span id="timer-board">60</span>
+            </div>
+        </div>
+
+        <!-- 遊戲開始/結束畫面 -->
+        <div id="overlay">
+            <h1>✨ 氣球大亂鬥 ✨</h1>
+            <div class="instructions">
+                <p>請使用 <b>滑鼠左鍵</b> 點擊氣球！</p>
+                <p><span class="key-badge bg-blue">藍色</span> & <span class="key-badge bg-red">紅色</span>：<b>+1 分</b> (快點!)</p>
+                <p><span class="key-badge bg-yellow">黃色</span>：<b>0 分</b> (沒反應)</p>
+                <p><span class="key-badge bg-black">黑色</span>：<b>-1 分</b> (不要點!)</p>
+            </div>
+            <button class="start-btn" onclick="startGame()">Start!</button>
+            <div id="final-score" style="display:none; margin-top: 20px; font-size: 36px; color: #5D5D5D;">
+                最終分數: <span style="color: #ff9a9e; font-weight:bold;">0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** * 音效系統 (Web Audio API) - 無需外部檔案
+         */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'pop') {
+                // 清脆的啵聲 (Sine波，音調快速下降)
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, now);
+                oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                gainNode.gain.setValueAtTime(0.5, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                oscillator.start(now);
+                oscillator.stop(now + 0.1);
+
+            } else if (type === 'bad') {
+                // 扣分/錯誤聲 (低頻 Sawtooth)
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, now);
+                oscillator.frequency.linearRampToValueAtTime(100, now + 0.2);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                oscillator.start(now);
+                oscillator.stop(now + 0.3);
+            } else if (type === 'win') {
+                // 結束音效
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(400, now);
+                oscillator.frequency.setValueAtTime(600, now + 0.1);
+                oscillator.frequency.setValueAtTime(800, now + 0.2);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + 0.6);
+                oscillator.start(now);
+                oscillator.stop(now + 0.6);
+            }
+        }
+
+        /**
+         * 遊戲邏輯
+         */
+        const GAME_DURATION = 60; 
+        const BASE_SPAWN_RATE = 350; // 生成速度加快兩倍 (原700 -> 350)
+        const BASE_RISE_SPEED = 4;
+
+        let score = 0;
+        let timeLeft = GAME_DURATION;
+        let gameInterval;
+        let spawnTimeout;
+        let isPlaying = false;
+        let currentSpawnRate = BASE_SPAWN_RATE;
+        let currentRiseSpeed = BASE_RISE_SPEED;
+
+        const container = document.getElementById('game-container');
+        const scoreEl = document.getElementById('score-board');
+        const timerEl = document.getElementById('timer-board');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.querySelector('.start-btn');
+        const finalScoreDiv = document.getElementById('final-score');
+        const finalScoreSpan = finalScoreDiv.querySelector('span');
+
+        // 鎖定右鍵選單
+        container.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function startGame() {
+            // 初始化音效環境
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            score = 0;
+            timeLeft = GAME_DURATION;
+            currentSpawnRate = BASE_SPAWN_RATE;
+            currentRiseSpeed = BASE_RISE_SPEED;
+            isPlaying = true;
+
+            scoreEl.textContent = score;
+            timerEl.textContent = timeLeft;
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+            finalScoreDiv.style.display = 'none';
+
+            // 清理舊泡泡
+            document.querySelectorAll('.bubble').forEach(b => b.remove());
+            document.querySelectorAll('.particle').forEach(p => p.remove());
+
+            gameInterval = setInterval(gameLoop, 1000);
+            spawnBubbleLoop();
+        }
+
+        function gameLoop() {
+            timeLeft--;
+            timerEl.textContent = timeLeft;
+
+            // 難度曲線：時間越少，泡泡飛越快，生成越快
+            if (timeLeft % 10 === 0) {
+                currentSpawnRate = Math.max(150, currentSpawnRate - 30);
+                currentRiseSpeed = Math.max(1.5, currentRiseSpeed - 0.5);
+            }
+
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            clearTimeout(spawnTimeout);
+            playSound('win');
+            
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 50);
+            
+            document.querySelector('#overlay h1').textContent = "🎉 遊戲結束 🎉";
+            startBtn.textContent = "再來一場";
+            finalScoreSpan.textContent = score;
+            finalScoreDiv.style.display = 'block';
+        }
+
+        function spawnBubbleLoop() {
+            if (!isPlaying) return;
+            spawnBubble();
+            let randomDelay = Math.random() * 100 - 50; // 隨機一點
+            spawnTimeout = setTimeout(spawnBubbleLoop, currentSpawnRate + randomDelay);
+        }
+
+        function spawnBubble() {
+            const bubble = document.createElement('div');
+            bubble.classList.add('bubble');
+
+            // 隨機決定顏色
+            // 35% 藍, 35% 紅, 15% 黃, 15% 黑
+            const rand = Math.random();
+            let type = 'blue';
+            if (rand < 0.35) type = 'blue';
+            else if (rand < 0.70) type = 'red';
+            else if (rand < 0.85) type = 'yellow';
+            else type = 'black';
+
+            bubble.classList.add(type);
+            bubble.dataset.color = type;
+
+            const size = Math.floor(Math.random() * 50) + 70; // 70-120px
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+
+            const maxLeft = 900 - size - 40;
+            bubble.style.left = `${Math.floor(Math.random() * maxLeft) + 20}px`;
+
+            // 設定隨機的上升動畫 (1~3種路徑)
+            const animType = Math.floor(Math.random() * 3) + 1;
+            bubble.style.animation = `rise-${animType} ${currentRiseSpeed}s linear forwards`;
+
+            // 只綁定 mousedown，不分左右鍵 (但其實只處理左鍵較佳，以免右鍵觸發瀏覽器選單雖然被擋掉了)
+            bubble.addEventListener('mousedown', handleBubbleClick);
+            
+            // 動畫結束自動移除
+            bubble.addEventListener('animationend', () => {
+                bubble.remove();
+            });
+
+            container.appendChild(bubble);
+        }
+
+        function handleBubbleClick(e) {
+            if (!isPlaying) return;
+            if (e.button !== 0) return; // 限制只接受左鍵
+
+            e.stopPropagation();
+            const bubble = e.target;
+            const color = bubble.dataset.color;
+            
+            const rect = bubble.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            if (color === 'yellow') {
+                // 黃色：沒分，可以戳破，但沒特效或輕微特效
+                playSound('pop');
+                showFloatingText(e.clientX, e.clientY, "+0", "#f6d365");
+                bubble.remove();
+                return;
+            }
+
+            if (color === 'black') {
+                // 黑色：扣分
+                playSound('bad');
+                score -= 1;
+                scoreEl.textContent = score;
+                showFloatingText(e.clientX, e.clientY, "-1", "#333");
+                
+                // 黑色氣球炸開特效
+                createParticles(centerX, centerY, '#434343');
+                bubble.remove();
+                return;
+            }
+
+            // 紅色或藍色：得分
+            playSound('pop');
+            score += 1;
+            scoreEl.textContent = score;
+
+            // 視覺回饋
+            createParticles(centerX, centerY, color === 'blue' ? '#00f2fe' : '#ff9a9e');
+            showFloatingText(e.clientX, e.clientY, `+1`, color === 'blue' ? '#00f2fe' : '#ff9a9e');
+
+            bubble.remove();
+        }
+
+        /**
+         * 粒子爆炸特效
+         */
+        function createParticles(x, y, color) {
+            // 需要把座標轉換成相對於 game-container
+            const containerRect = container.getBoundingClientRect();
+            const relX = x - containerRect.left;
+            const relY = y - containerRect.top;
+
+            for (let i = 0; i < 8; i++) {
+                const p = document.createElement('div');
+                p.classList.add('particle');
+                p.style.backgroundColor = color;
+                
+                const size = Math.random() * 8 + 4;
+                p.style.width = `${size}px`;
+                p.style.height = `${size}px`;
+                p.style.left = `${relX}px`;
+                p.style.top = `${relY}px`;
+
+                // 隨機噴射方向
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 60 + 40;
+                const tx = Math.cos(angle) * velocity;
+                const ty = Math.sin(angle) * velocity;
+
+                p.style.setProperty('--tx', `${tx}px`);
+                p.style.setProperty('--ty', `${ty}px`);
+
+                container.appendChild(p);
+                setTimeout(() => p.remove(), 600);
+            }
+        }
+
+        function showFloatingText(x, y, text, color) {
+            const el = document.createElement('div');
+            el.classList.add('floating-text');
+            el.textContent = text;
+            if (color) el.style.color = color;
+            
+            // 確保位置在 container 內
+            const containerRect = container.getBoundingClientRect();
+            el.style.left = `${x - containerRect.left}px`;
+            el.style.top = `${y - containerRect.top}px`;
+            
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+    </script>
+</body>
+</html>
