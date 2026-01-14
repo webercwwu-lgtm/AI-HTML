@@ -93,6 +93,9 @@
         const ExamSystem = () => {
             const [now, setNow] = useState(new Date());
             const [showSettings, setShowSettings] = useState(false);
+            const audioRefs = useRef({});
+            const scrollContainerRef = useRef(null); // [新增] 滾動容器的 Ref
+            const [playingId, setPlayingId] = useState(null);
 
             // 計算民國日期
             const rocDate = useMemo(() => {
@@ -127,9 +130,6 @@
                 };
             });
 
-            const audioRefs = useRef({});
-            const [playingId, setPlayingId] = useState(null);
-
             useEffect(() => {
                 const timer = setInterval(() => setNow(new Date()), 1000);
                 return () => clearInterval(timer);
@@ -152,8 +152,20 @@
                         return { type: 'exam', idx: i, remain: end - totalMinutes, total: end - start };
                     }
                 }
-                return { type: 'idle' };
+                return { type: 'idle', idx: -1 };
             }, [now, schedule]);
+
+            // [新增] 自動滾動邏輯：當節次索引改變時觸發
+            useEffect(() => {
+                if (currentStatus.idx !== -1 && scrollContainerRef.current) {
+                    const container = scrollContainerRef.current;
+                    const activeItem = container.children[currentStatus.idx];
+                    if (activeItem) {
+                        const targetScroll = activeItem.offsetTop - container.offsetTop - 16;
+                        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                    }
+                }
+            }, [currentStatus.idx]);
 
             const handleAudio = (e, id) => {
                 const file = e.target.files[0];
@@ -187,7 +199,7 @@
                                     </div>
                                     <div className="w-full bg-slate-100 h-24 rounded-3xl overflow-hidden border-4 border-slate-100 relative shadow-inner">
                                         <div className="bg-emerald-500 h-full transition-all duration-1000" style={{width: `${(currentStatus.remain/currentStatus.total)*100}%`}}></div>
-                                        <div className="absolute inset-0 flex items-center justify-center font-black text-4xl text-slate-800 mix-blend-overlay">
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-4xl text-slate-900">
                                             剩餘約 {currentStatus.remain} 分鐘
                                         </div>
                                     </div>
@@ -202,7 +214,11 @@
                     <div className="h-2/3 flex bg-slate-50 overflow-hidden">
                         {/* 列表區 */}
                         <div className="w-[55%] flex flex-col border-r bg-white shadow-xl">
-                            <div className="flex-1 overflow-y-auto schedule-list p-4 space-y-3">
+                            {/* [修改] 加入 ref={scrollContainerRef} */}
+                            <div 
+                                ref={scrollContainerRef}
+                                className="flex-1 overflow-y-auto schedule-list p-4 space-y-3"
+                            >
                                 {schedule.map((item, i) => (
                                     <div key={item.id} className={`flex items-center p-5 rounded-3xl border-2 transition-all ${currentStatus.idx === i ? 'bg-amber-50 border-amber-400 shadow-md ring-4 ring-amber-100/50' : 'bg-white border-slate-100'}`}>
                                         <input value={item.subject} onChange={e => {
