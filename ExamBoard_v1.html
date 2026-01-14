@@ -3,12 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta property="og:title" content="教室期末考監考系統 - 10節課版" />
-    <meta property="og:description" content="專為監考老師設計的動態看板。整合10節課時段、鐘聲校對、注意事項輪播與考勤統計。" />
-    <meta property="og:image" content="https://i.postimg.cc/tgNpbqkj/examtool.png" />
-    <meta property="og:type" content="website" />
-
-    <title>教室期末考監考系統 (10節課版)</title>
+    <title>教室期末考監考系統 - 10節課放大版</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -16,45 +11,43 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
+        body { margin: 0; padding: 0; overflow: hidden; font-family: system-ui; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         
-        .time-input-container { position: relative; }
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            background: transparent; bottom: 0; color: transparent; cursor: pointer;
-            height: auto; left: 0; position: absolute; right: 0; top: 0; width: auto;
+        /* 確保時間輸入框的點擊範圍正確 */
+        input[type="time"] {
+            position: relative;
+            cursor: pointer;
+            padding: 4px 8px;
+            background: #f1f5f9;
+            border-radius: 6px;
         }
-        .tabular-nums { font-variant-numeric: tabular-nums; }
-        /* 讓列表平滑滾動 */
         .schedule-list { scroll-behavior: smooth; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
         // --- 圖示組件 ---
         const Icon = ({ children, size = 24, className = "", onClick, disabled }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick} style={{ cursor: onClick && !disabled ? 'pointer' : 'default', opacity: disabled ? 0.3 : 1 }}>
                 {children}
             </svg>
         );
+        const Play = (props) => <Icon {...props}><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
+        const Pause = (props) => <Icon {...props}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></Icon>;
+        const Upload = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Icon>;
+        const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
+        const Settings = (props) => <Icon {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></Icon>;
+        const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
 
-        const Play = (props) => <Icon {...props}><polygon points="5 3 19 12 5 21 5 3"></polygon></Icon>;
-        const Pause = (props) => <Icon {...props}><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></Icon>;
-        const RotateCcw = (props) => <Icon {...props}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"></path><path d="M3 3v9h9"></path></Icon>;
-        const Upload = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></Icon>;
-        const Settings = (props) => <Icon {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></Icon>;
-        const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></Icon>;
-        const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></Icon>;
-        const ArrowUp = (props) => <Icon {...props}><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></Icon>;
-        const ArrowDown = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></Icon>;
-
-        const { useState, useEffect, useRef, useMemo } = React;
-
-        // --- 設定視窗組件 ---
+        // --- 設定視窗 ---
         const SettingsModal = ({ show, onClose, reminders, setReminders }) => {
             if (!show) return null;
             const handleReminderChange = (mode, index, val) => {
@@ -62,47 +55,33 @@
                 newReminders[mode][index] = val;
                 setReminders(newReminders);
             };
-            const addReminder = (mode) => {
-                const newReminders = {...reminders};
-                newReminders[mode].push("新提醒");
-                setReminders(newReminders);
-            };
-            const removeReminder = (mode, index) => {
-                const newReminders = {...reminders};
-                newReminders[mode].splice(index, 1);
-                setReminders(newReminders);
-            };
-            const moveReminder = (mode, index, direction) => {
-                const newReminders = {...reminders};
-                const list = newReminders[mode];
-                if (direction === -1 && index > 0) [list[index], list[index-1]] = [list[index-1], list[index]];
-                else if (direction === 1 && index < list.length - 1) [list[index], list[index+1]] = [list[index+1], list[index]];
-                setReminders(newReminders);
-            };
-
             return (
-                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-4xl h-3/4 overflow-y-auto rounded-2xl p-6 shadow-2xl">
-                        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 border-b pb-2">
-                            <h2 className="text-2xl font-bold">提醒內容設定</h2>
-                            <button onClick={onClose} className="px-4 py-2 bg-slate-100 rounded-lg font-medium">關閉</button>
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-lg">
+                    <div className="bg-white w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-3xl p-8 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4 border-b">
+                            <h2 className="text-3xl font-bold text-slate-700">輪播訊息設定</h2>
+                            <button onClick={onClose} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold">儲存並關閉</button>
                         </div>
                         <div className="grid grid-cols-2 gap-8">
-                            <div className="bg-red-50 p-4 rounded-xl">
-                                <h3 className="font-bold text-red-600 mb-4 flex justify-between items-center">考試中提醒 <Plus onClick={() => addReminder('exam')} className="text-green-600"/></h3>
+                            <div className="bg-rose-50 p-6 rounded-2xl">
+                                <h3 className="font-bold text-rose-600 mb-4 text-xl flex items-center gap-2">考試中訊息 <Plus size={20} className="cursor-pointer" onClick={() => setReminders({...reminders, exam: [...reminders.exam, "新提醒"]})}/></h3>
                                 {reminders.exam.map((text, idx) => (
-                                    <div key={idx} className="flex gap-2 mb-2 items-center bg-white p-2 rounded border">
-                                        <input value={text} onChange={(e) => handleReminderChange('exam', idx, e.target.value)} className="flex-1 text-sm outline-none" />
-                                        <Trash2 size={16} onClick={() => removeReminder('exam', idx)} className="text-slate-300 hover:text-red-500" />
+                                    <div key={idx} className="flex gap-2 mb-3 items-center bg-white p-3 rounded-xl border shadow-sm">
+                                        <input value={text} onChange={(e) => handleReminderChange('exam', idx, e.target.value)} className="flex-1 outline-none" />
+                                        <Trash2 size={20} onClick={() => {
+                                            const newList = [...reminders.exam]; newList.splice(idx,1); setReminders({...reminders, exam: newList});
+                                        }} className="text-slate-300 hover:text-red-500 cursor-pointer" />
                                     </div>
                                 ))}
                             </div>
-                            <div className="bg-green-50 p-4 rounded-xl">
-                                <h3 className="font-bold text-green-600 mb-4 flex justify-between items-center">休息/下課提醒 <Plus onClick={() => addReminder('break')} className="text-green-600"/></h3>
+                            <div className="bg-emerald-50 p-6 rounded-2xl">
+                                <h3 className="font-bold text-emerald-600 mb-4 text-xl flex items-center gap-2">休息中訊息 <Plus size={20} className="cursor-pointer" onClick={() => setReminders({...reminders, break: [...reminders.break, "新提醒"]})}/></h3>
                                 {reminders.break.map((text, idx) => (
-                                    <div key={idx} className="flex gap-2 mb-2 items-center bg-white p-2 rounded border">
-                                        <input value={text} onChange={(e) => handleReminderChange('break', idx, e.target.value)} className="flex-1 text-sm outline-none" />
-                                        <Trash2 size={16} onClick={() => removeReminder('break', idx)} className="text-slate-300 hover:text-red-500" />
+                                    <div key={idx} className="flex gap-2 mb-3 items-center bg-white p-3 rounded-xl border shadow-sm">
+                                        <input value={text} onChange={(e) => handleReminderChange('break', idx, e.target.value)} className="flex-1 outline-none" />
+                                        <Trash2 size={20} onClick={() => {
+                                            const newList = [...reminders.break]; newList.splice(idx,1); setReminders({...reminders, break: newList});
+                                        }} className="text-slate-300 hover:text-red-500 cursor-pointer" />
                                     </div>
                                 ))}
                             </div>
@@ -116,35 +95,34 @@
             const [now, setNow] = useState(new Date());
             const [showSettings, setShowSettings] = useState(false);
 
-            // --- 1. 初始化 10 節課時段 ---
-            const defaultSchedule = Array.from({ length: 10 }, (_, i) => ({
-                id: i + 1,
-                subject: `科目 ${i + 1}`,
-                start: `${String(8 + i).padStart(2, '0')}:40`,
-                end: `${String(9 + i).padStart(2, '0')}:20`,
-                audio: null
-            }));
-
+            // 初始化 10 節課
             const [schedule, setSchedule] = useState(() => {
-                const saved = localStorage.getItem('exam_schedule_v10');
-                return saved ? JSON.parse(saved) : defaultSchedule;
+                const saved = localStorage.getItem('exam_v10_data');
+                if (saved) return JSON.parse(saved);
+                return Array.from({ length: 10 }, (_, i) => ({
+                    id: i + 1,
+                    subject: `第 ${i + 1} 節`,
+                    start: `${String(8 + i).padStart(2, '0')}:10`,
+                    end: `${String(8 + i).padStart(2, '0')}:50`,
+                    audio: null
+                }));
             });
 
             const [attendance, setAttendance] = useState(() => {
-                const saved = localStorage.getItem('exam_attendance_v10');
+                const saved = localStorage.getItem('exam_v10_attendance');
                 return saved ? JSON.parse(saved) : { expected: '', actual: '', absent: '' };
             });
 
             const [reminders, setReminders] = useState(() => {
-                const saved = localStorage.getItem('exam_reminders_v10');
+                const saved = localStorage.getItem('exam_v10_reminders');
                 return saved ? JSON.parse(saved) : {
-                    exam: ["考卷記得寫姓名", "有問題舉手問老師", "耐心細心小心", "寫完多檢查"],
-                    break: ["準備下個科目文具", "提早上廁所喝水", "桌面淨空"]
+                    exam: ["保持安靜，細心檢查", "不可交談，不可東張西望", "記得寫上姓名座號"],
+                    break: ["準備下節文具", "桌面淨空，喝水上廁所", "保持走廊安靜"]
                 };
             });
 
-            const [playingAudioId, setPlayingAudioId] = useState(null);
             const audioRefs = useRef({});
+            const [playingId, setPlayingId] = useState(null);
 
             useEffect(() => {
                 const timer = setInterval(() => setNow(new Date()), 1000);
@@ -152,45 +130,26 @@
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('exam_schedule_v10', JSON.stringify(schedule));
-                localStorage.setItem('exam_attendance_v10', JSON.stringify(attendance));
-                localStorage.setItem('exam_reminders_v10', JSON.stringify(reminders));
+                localStorage.setItem('exam_v10_data', JSON.stringify(schedule));
+                localStorage.setItem('exam_v10_attendance', JSON.stringify(attendance));
+                localStorage.setItem('exam_v10_reminders', JSON.stringify(reminders));
             }, [schedule, attendance, reminders]);
 
-            const dateString = useMemo(() => {
-                const rocYear = now.getFullYear() - 1911;
-                const month = now.getMonth() + 1;
-                const date = now.getDate();
-                const dayName = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
-                return `民國${rocYear}年${month}月${date}日 星期${dayName}`;
-            }, [now]);
-
-            const parseTime = (timeStr) => {
-                const [h, m] = timeStr.split(':').map(Number);
-                const d = new Date(now);
-                d.setHours(h, m, 0, 0);
-                return d;
-            };
-
             const currentStatus = useMemo(() => {
-                const currentTime = now.getTime();
+                const totalMinutes = now.getHours() * 60 + now.getMinutes();
                 for (let i = 0; i < schedule.length; i++) {
-                    const start = parseTime(schedule[i].start).getTime();
-                    const end = parseTime(schedule[i].end).getTime();
-                    if (currentTime >= start && currentTime <= end) {
-                        return { type: 'exam', slotIndex: i, timeLeft: end - currentTime, totalDuration: end - start };
-                    }
-                    if (i < schedule.length - 1) {
-                        const nextStart = parseTime(schedule[i+1].start).getTime();
-                        if (currentTime > end && currentTime < nextStart) {
-                            return { type: 'break', nextSlotIndex: i + 1, timeLeft: nextStart - currentTime, totalDuration: nextStart - end };
-                        }
+                    const [sh, sm] = schedule[i].start.split(':').map(Number);
+                    const [eh, em] = schedule[i].end.split(':').map(Number);
+                    const start = sh * 60 + sm;
+                    const end = eh * 60 + em;
+                    if (totalMinutes >= start && totalMinutes < end) {
+                        return { type: 'exam', idx: i, remain: end - totalMinutes, total: end - start };
                     }
                 }
                 return { type: 'idle' };
             }, [now, schedule]);
 
-            const handleAudioUpload = (e, id) => {
+            const handleAudio = (e, id) => {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
@@ -201,113 +160,108 @@
                 }
             };
 
-            const toggleAudio = (id) => {
-                const audio = audioRefs.current[id];
-                if (playingAudioId === id) { audio.pause(); setPlayingAudioId(null); }
-                else {
-                    if (playingAudioId && audioRefs.current[playingAudioId]) audioRefs.current[playingAudioId].pause();
-                    audio.play(); setPlayingAudioId(id);
-                }
-            };
-
-            // --- 進度條組件 ---
-            const ProgressBar = () => {
-                const { type, timeLeft, totalDuration } = currentStatus;
-                if (type === 'idle') return <div className="h-full flex items-center justify-center text-slate-400 text-2xl font-bold bg-slate-50 rounded-2xl border-dashed border-2">非考試時段</div>;
-                const percent = Math.max(0, Math.min(100, (timeLeft / totalDuration) * 100));
-                const mins = Math.ceil(timeLeft / 60000);
-                const color = percent < 20 ? 'bg-rose-500' : 'bg-emerald-500';
-                return (
-                    <div className="w-full h-full flex flex-col p-2">
-                        <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden relative border shadow-inner">
-                            <div className={`absolute left-0 h-full transition-all duration-1000 ${color}`} style={{ width: `${percent}%` }}></div>
-                            <div className="absolute inset-0 flex items-center justify-center z-10">
-                                <span className="text-3xl font-black bg-white/80 px-4 py-1 rounded-full shadow-sm">
-                                    {type === 'exam' ? '考試中' : '休息'} - 剩餘 {mins} 分鐘
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
             return (
-                <div className="w-screen h-screen flex flex-col bg-slate-50">
+                <div className="w-screen h-screen flex flex-col bg-slate-900">
                     <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} reminders={reminders} setReminders={setReminders} />
-                    
-                    {/* 上方：時間與進度 */}
-                    <div className="h-1/3 flex bg-slate-900 shadow-xl z-20">
-                        <div className="w-1/3 flex flex-col items-center justify-center border-r border-slate-700 text-white">
-                            <div className="text-[2vh] text-slate-400 mb-1">{dateString}</div>
-                            <div className="text-[10vh] font-mono font-bold leading-none">
+
+                    {/* 上方：時間看板 */}
+                    <div className="h-1/3 flex bg-white border-b shadow-2xl z-10">
+                        <div className="w-1/3 bg-slate-900 text-white flex flex-col items-center justify-center border-r border-slate-700">
+                            <div className="text-xl text-slate-400 mb-2 font-bold tracking-widest">DIGITAL MONITOR</div>
+                            <div className="text-[12vh] font-mono font-bold leading-none tabular-nums text-emerald-400">
                                 {now.toLocaleTimeString('zh-TW', { hour12: false })}
                             </div>
                         </div>
-                        <div className="w-2/3 p-4 bg-white">
-                            <ProgressBar />
+                        <div className="w-2/3 p-8 flex items-center justify-center">
+                            {currentStatus.type === 'exam' ? (
+                                <div className="w-full">
+                                    <div className="text-4xl font-black text-slate-800 mb-6 flex justify-between items-end">
+                                        <span>{schedule[currentStatus.idx].subject} - 考試中</span>
+                                        <span className="text-2xl text-slate-400">剩餘 {currentStatus.remain} 分鐘</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-24 rounded-3xl overflow-hidden border-4 border-slate-100 relative shadow-inner">
+                                        <div className="bg-emerald-500 h-full transition-all duration-1000" style={{width: `${(currentStatus.remain/currentStatus.total)*100}%`}}></div>
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-4xl text-slate-800 mix-blend-overlay">
+                                            剩餘約 {currentStatus.remain} 分鐘
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-6xl font-black text-slate-200 italic tracking-tighter uppercase">Waiting for Exam...</div>
+                            )}
                         </div>
                     </div>
 
-                    {/* 下方：列表與提醒 */}
-                    <div className="h-2/3 flex overflow-hidden">
-                        {/* A區：10節課列表 (可滾動) */}
-                        <div className="w-1/2 border-r bg-white flex flex-col relative">
-                            <div className="flex-1 overflow-y-auto schedule-list p-2 space-y-2">
-                                {schedule.map((item, index) => {
-                                    const isActive = currentStatus.type === 'exam' && currentStatus.slotIndex === index;
-                                    return (
-                                        <div key={item.id} className={`flex items-center p-3 gap-3 rounded-xl border transition-all ${isActive ? 'bg-amber-100 border-amber-400 ring-2 ring-amber-200' : 'bg-white'}`}>
-                                            <input value={item.subject} onChange={(e) => setSchedule(s => s.map(x => x.id===item.id?{...x, subject:e.target.value}:x))} className="w-24 font-bold text-lg bg-transparent border-none outline-none" />
-                                            <div className="flex-1 flex gap-2 font-mono text-sm text-slate-500">
-                                                <input type="time" value={item.start} onChange={(e) => setSchedule(s => s.map(x => x.id===item.id?{...x, start:e.target.value}:x))} className="bg-transparent"/>
-                                                <span>~</span>
-                                                <input type="time" value={item.end} onChange={(e) => setSchedule(s => s.map(x => x.id===item.id?{...x, end:e.target.value}:x))} className="bg-transparent"/>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <input type="file" id={`audio-${item.id}`} className="hidden" onChange={(e) => handleAudioUpload(e, item.id)} />
-                                                {item.audio ? (
-                                                    <div className="flex gap-1">
-                                                        <audio ref={el => audioRefs.current[item.id] = el} src={item.audio} onEnded={() => setPlayingAudioId(null)} />
-                                                        <button onClick={() => toggleAudio(item.id)} className={`p-1 rounded-full text-white ${playingAudioId===item.id?'bg-rose-500':'bg-emerald-500'}`}>
-                                                            {playingAudioId===item.id?<Pause size={18}/>:<Play size={18}/>}
-                                                        </button>
-                                                        <Trash2 size={18} className="text-slate-300" onClick={() => setSchedule(s => s.map(x => x.id===item.id?{...x, audio:null}:x))} />
-                                                    </div>
-                                                ) : <label htmlFor={`audio-${item.id}`} className="cursor-pointer text-slate-300"><Upload size={20}/></label>}
-                                            </div>
+                    {/* 下方：主控區 */}
+                    <div className="h-2/3 flex bg-slate-50 overflow-hidden">
+                        {/* 列表區 */}
+                        <div className="w-[55%] flex flex-col border-r bg-white shadow-xl">
+                            <div className="flex-1 overflow-y-auto schedule-list p-4 space-y-3">
+                                {schedule.map((item, i) => (
+                                    <div key={item.id} className={`flex items-center p-5 rounded-3xl border-2 transition-all ${currentStatus.idx === i ? 'bg-amber-50 border-amber-400 shadow-md ring-4 ring-amber-100/50' : 'bg-white border-slate-100'}`}>
+                                        <input value={item.subject} onChange={e => {
+                                            const newS = [...schedule]; newS[i].subject = e.target.value; setSchedule(newS);
+                                        }} className="w-40 font-black text-3xl bg-transparent outline-none text-slate-700" />
+                                        
+                                        <div className="flex-1 flex justify-center items-center gap-4">
+                                            <input type="time" value={item.start} onChange={e => {
+                                                const newS = [...schedule]; newS[i].start = e.target.value; setSchedule(newS);
+                                            }} className="text-3xl font-mono font-bold text-slate-500 hover:text-blue-600 transition-colors" />
+                                            <span className="text-2xl font-bold text-slate-300">➜</span>
+                                            <input type="time" value={item.end} onChange={e => {
+                                                const newS = [...schedule]; newS[i].end = e.target.value; setSchedule(newS);
+                                            }} className="text-3xl font-mono font-bold text-slate-500 hover:text-blue-600 transition-colors" />
                                         </div>
-                                    );
-                                })}
+
+                                        <div className="flex items-center gap-3 ml-4">
+                                            <input type="file" id={`aud-${item.id}`} className="hidden" onChange={e => handleAudio(e, item.id)} accept="audio/*" />
+                                            {item.audio ? (
+                                                <button onClick={() => {
+                                                    const a = audioRefs.current[item.id];
+                                                    if(playingId === item.id) { a.pause(); setPlayingId(null); }
+                                                    else { a.play(); setPlayingId(item.id); }
+                                                }} className={`w-12 h-12 flex items-center justify-center rounded-2xl text-white shadow-lg transition-transform active:scale-90 ${playingId===item.id?'bg-rose-500 animate-pulse':'bg-emerald-500'}`}>
+                                                    {playingId===item.id ? <Pause size={28}/> : <Play size={28}/>}
+                                                    <audio ref={el => audioRefs.current[item.id] = el} src={item.audio} onEnded={()=>setPlayingId(null)} />
+                                                </button>
+                                            ) : (
+                                                <label htmlFor={`aud-${item.id}`} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-blue-500 cursor-pointer border-2 border-dashed border-slate-200 rounded-2xl"><Upload size={24}/></label>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                             
-                            {/* 考勤區 (縮小高度) */}
-                            <div className="h-24 bg-slate-50 border-t flex p-2 gap-4">
-                                <div className="flex-1 bg-white p-2 rounded border text-center shadow-sm">
-                                    <div className="text-xs font-bold text-slate-400 uppercase">應到</div>
-                                    <input value={attendance.expected} onChange={e => setAttendance({...attendance, expected:e.target.value})} className="w-full text-center text-2xl font-bold bg-transparent outline-none" />
+                            {/* 統計與設定按鈕 */}
+                            <div className="h-28 bg-slate-900 flex p-4 gap-4 items-center">
+                                <div className="flex-1 bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                    <div className="text-xs text-slate-400 font-bold mb-1">應到</div>
+                                    <input value={attendance.expected} onChange={e=>setAttendance({...attendance, expected:e.target.value})} className="w-full bg-transparent text-white text-3xl font-black text-center outline-none" placeholder="0" />
                                 </div>
-                                <div className="flex-1 bg-white p-2 rounded border text-center shadow-sm">
-                                    <div className="text-xs font-bold text-green-500 uppercase">實到</div>
-                                    <input value={attendance.actual} onChange={e => setAttendance({...attendance, actual:e.target.value})} className="w-full text-center text-2xl font-bold bg-transparent outline-none" />
+                                <div className="flex-1 bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                    <div className="text-xs text-emerald-400 font-bold mb-1">實到</div>
+                                    <input value={attendance.actual} onChange={e=>setAttendance({...attendance, actual:e.target.value})} className="w-full bg-transparent text-white text-3xl font-black text-center outline-none" placeholder="0" />
                                 </div>
-                                <div className="flex-[1.5] bg-white p-2 rounded border shadow-sm">
-                                    <div className="text-xs font-bold text-red-500 text-center uppercase">缺席名單</div>
-                                    <input value={attendance.absent} onChange={e => setAttendance({...attendance, absent:e.target.value})} className="w-full text-center text-sm bg-transparent outline-none mt-1" placeholder="座號/姓名" />
+                                <div className="flex-[2] bg-white/10 rounded-2xl p-2 border border-white/10 flex flex-col items-center">
+                                    <div className="text-xs text-rose-400 font-bold mb-1">缺席座號</div>
+                                    <input value={attendance.absent} onChange={e=>setAttendance({...attendance, absent:e.target.value})} className="w-full bg-transparent text-white text-xl font-bold text-center outline-none" placeholder="None" />
                                 </div>
-                                <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 self-center"><Settings /></button>
+                                <button onClick={() => setShowSettings(true)} className="w-16 h-16 flex items-center justify-center bg-blue-600 text-white rounded-2xl hover:bg-blue-500 shadow-lg transition-all active:rotate-90">
+                                    <Settings size={32} />
+                                </button>
                             </div>
                         </div>
 
-                        {/* B區：動態提醒 (保持大字體) */}
-                        <div className="w-1/2 bg-[#fffdf0] flex flex-col items-center justify-center p-8 text-center">
-                            <h2 className="text-2xl font-bold text-slate-400 mb-6 border-b pb-2 w-full">
-                                {currentStatus.type === 'exam' ? '考試注意事項' : '下課注意事項'}
-                            </h2>
-                            <div className="text-[6vh] font-black text-slate-800 leading-tight">
+                        {/* 右側：超大輪播提示 */}
+                        <div className="w-[45%] bg-[#fffdf0] flex flex-col items-center justify-center p-12 text-center relative">
+                            <div className="absolute top-8 left-8 right-8 border-b-4 border-slate-200 pb-4">
+                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase">Attention</div>
+                            </div>
+                            <div className="text-[8vh] font-black text-slate-800 leading-tight drop-shadow-sm">
                                 {(() => {
                                     const list = currentStatus.type === 'exam' ? reminders.exam : reminders.break;
-                                    const idx = Math.floor(now.getTime() / 5000) % (list.length || 1);
-                                    return list[idx] || "保持安靜";
+                                    const cycle = Math.floor(now.getSeconds() / 8) % (list.length || 1);
+                                    return list[cycle] || "保持安靜";
                                 })()}
                             </div>
                         </div>
