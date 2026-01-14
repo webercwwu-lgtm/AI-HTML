@@ -288,4 +288,36 @@
                                 </div>
                                 <div className="flex-1 bg-white p-2 rounded border text-center shadow-sm">
                                     <div className="text-xs font-bold text-green-500 uppercase">實到</div>
-                                    <input value={attendance.actual} onChange={e => setAttendance({...attendance, actual:e.target.value})} className="w-full
+                                    <input value={attendance.actual} onChange={e => setAttendance({...attendance, actual:e.target.value})} className="w-full text-center text-2xl font-bold bg-transparent outline-none" />
+                                </div>
+                                <div className="flex-[1.5] bg-white p-2 rounded border shadow-sm">
+                                    <div className="text-xs font-bold text-red-500 text-center uppercase">缺席名單</div>
+                                    <input value={attendance.absent} onChange={e => setAttendance({...attendance, absent:e.target.value})} className="w-full text-center text-sm bg-transparent outline-none mt-1" placeholder="座號/姓名" />
+                                </div>
+                                <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 self-center"><Settings /></button>
+                            </div>
+                        </div>
+
+                        {/* B區：動態提醒 (保持大字體) */}
+                        <div className="w-1/2 bg-[#fffdf0] flex flex-col items-center justify-center p-8 text-center">
+                            <h2 className="text-2xl font-bold text-slate-400 mb-6 border-b pb-2 w-full">
+                                {currentStatus.type === 'exam' ? '考試注意事項' : '下課注意事項'}
+                            </h2>
+                            <div className="text-[6vh] font-black text-slate-800 leading-tight">
+                                {(() => {
+                                    const list = currentStatus.type === 'exam' ? reminders.exam : reminders.break;
+                                    const idx = Math.floor(now.getTime() / 5000) % (list.length || 1);
+                                    return list[idx] || "保持安靜";
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ExamSystem />);
+    </script>
+</body>
+</html>
