@@ -94,10 +94,10 @@
             const [now, setNow] = useState(new Date());
             const [showSettings, setShowSettings] = useState(false);
             const audioRefs = useRef({});
-            const scrollContainerRef = useRef(null); // [新增] 滾動容器的 Ref
+            const scrollContainerRef = useRef(null);
             const [playingId, setPlayingId] = useState(null);
 
-            // 計算民國日期
+            // 計算民國日期 (含星期)
             const rocDate = useMemo(() => {
                 const year = now.getFullYear() - 1911;
                 const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -109,11 +109,21 @@
             const [schedule, setSchedule] = useState(() => {
                 const saved = localStorage.getItem('exam_v10_data');
                 if (saved) return JSON.parse(saved);
+                
+                // 預設每節課獨立時間
+                const defaultTimes = [
+                    { start: "08:10", end: "09:00" }, { start: "09:10", end: "10:00" },
+                    { start: "10:10", end: "11:00" }, { start: "11:10", end: "12:00" },
+                    { start: "13:10", end: "14:00" }, { start: "14:10", end: "15:00" },
+                    { start: "15:10", end: "16:00" }, { start: "16:10", end: "17:00" },
+                    { start: "17:10", end: "18:00" }, { start: "18:10", end: "19:00" }
+                ];
+
                 return Array.from({ length: 10 }, (_, i) => ({
                     id: i + 1,
                     subject: `第 ${i + 1} 節`,
-                    start: `${String(9 + i).padStart(2, '0')}:00`,
-                    end: `${String(9 + i).padStart(2, '0')}:45`,
+                    start: defaultTimes[i]?.start || "08:00",
+                    end: defaultTimes[i]?.end || "08:45",
                     audio: null
                 }));
             });
@@ -126,8 +136,8 @@
             const [reminders, setReminders] = useState(() => {
                 const saved = localStorage.getItem('exam_v10_reminders');
                 return saved ? JSON.parse(saved) : {
-                    exam: ["考卷記得寫上班級姓名座號", "有問題舉手問老師，需要撿東西請監考老師幫忙", "不會寫的題目跳過寫會的題目", "耐心、細心、小心", "考卷有不會的問題等出題老師來了再問", "不要轉頭玩東西，寫完多檢查", "檢查完再檢查或趴下休息"],
-                    break: ["等監考老師點完再離開座位下課", "利用下課準備下個科目與文具用品", "提早上廁所喝水", "桌面淨空", "準備考試、收拾位置、坐在位置上"]
+                    exam: ["考卷記得寫上班級姓名座號", "有問題舉手問老師", "不會寫的題目跳過寫會的題目", "耐心、細心、小心", "不要轉頭玩東西，寫完多檢查"],
+                    break: ["等監考老師點完再離開座位下課", "利用下課準備下個科目與文具用品", "提早上廁所喝水", "桌面淨空", "坐在位置上等待考試"]
                 };
             });
 
@@ -153,18 +163,26 @@
                         return { type: 'exam', idx: i, remain: end - totalMinutes, total: end - start };
                     }
                 }
-                return { type: 'idle', idx: -1 };
+                // 如果現在不在任何考試時間，找尋下一場還沒開始的最接近考試
+                for (let i = 0; i < schedule.length; i++) {
+                    const [sh, sm] = schedule[i].start.split(':').map(Number);
+                    if ((sh * 60 + sm) > totalMinutes) return { type: 'idle', idx: i };
+                }
+                return { type: 'idle', idx: 0 };
             }, [now, schedule]);
 
-            // [新增] 自動滾動邏輯：當節次索引改變時觸發
+            // 自動滾動邏輯 (含初始載入延遲)
             useEffect(() => {
-                if (currentStatus.idx !== -1 && scrollContainerRef.current) {
-                    const container = scrollContainerRef.current;
-                    const activeItem = container.children[currentStatus.idx];
-                    if (activeItem) {
-                        const targetScroll = activeItem.offsetTop - container.offsetTop - 16;
-                        container.scrollTo({ top: targetScroll, behavior: 'smooth' });
-                    }
+                if (currentStatus.idx >= 0 && scrollContainerRef.current) {
+                    const timer = setTimeout(() => {
+                        const container = scrollContainerRef.current;
+                        const activeItem = container.children[currentStatus.idx];
+                        if (activeItem) {
+                            const targetScroll = activeItem.offsetTop - container.offsetTop - 16;
+                            container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+                        }
+                    }, 300); 
+                    return () => clearTimeout(timer);
                 }
             }, [currentStatus.idx]);
 
@@ -213,9 +231,7 @@
 
                     {/* 下方：主控區 */}
                     <div className="h-2/3 flex bg-slate-50 overflow-hidden">
-                        {/* 列表區 */}
                         <div className="w-[55%] flex flex-col border-r bg-white shadow-xl">
-                            {/* [修改] 加入 ref={scrollContainerRef} */}
                             <div 
                                 ref={scrollContainerRef}
                                 className="flex-1 overflow-y-auto schedule-list p-4 space-y-3"
@@ -274,7 +290,6 @@
                             </div>
                         </div>
 
-                        {/* 右側：超大輪播提示 */}
                         <div className="w-[45%] bg-[#fffdf0] flex flex-col items-center justify-center p-12 text-center relative">
                             <div className="absolute top-8 left-8 right-8 border-b-4 border-slate-200 pb-4">
                                 <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase"> 注意事項 </div>
