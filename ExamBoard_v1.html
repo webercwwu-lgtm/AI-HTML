@@ -111,10 +111,8 @@
                 return saved ? parseInt(saved, 10) : 0;
             });
 
-            // 音檔相關狀態 (陣列，對應 3 個時段)
-            const [audioTracks, setAudioTracks] = useState([
-                { src: null, fileName: "", isPlaying: false, progress: 0 },
-                { src: null, fileName: "", isPlaying: false, progress: 0 },
+            // 音檔相關狀態 (陣列，對應 10 個時段)
+            const [audioTracks, setAudioTracks] = useState(Array(10).fill([
                 { src: null, fileName: "", isPlaying: false, progress: 0 }
             ]);
             
@@ -136,7 +134,7 @@
                     return parsed;
                 }
                 return {
-                    subjects: ["國語", "數學", "英文"],
+                    subjects: ["國語", "延長", "英文", "延長", "數學", "延長", "社會", "延長", "自然", "延長"],
                     shouldArrive: "",
                     actualArrive: "",
                     absentList: ""
@@ -454,7 +452,7 @@
                                                     type="text" 
                                                     value={examData.subjects[index] || ""}
                                                     onChange={(e) => handleSubjectChange(index, e.target.value)}
-                                                    className="w-full text-[2.8vw] font-black bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 outline-none placeholder-gray-300 leading-tight text-black"
+                                                    className="w-full text-[1.5vw] font-black bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 outline-none placeholder-gray-300 leading-tight text-black"
                                                     placeholder={`科目 ${index + 1}`}
                                                 />
                                             </div>
