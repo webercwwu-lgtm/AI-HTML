@@ -95,6 +95,281 @@
             const [now, setNow] = useState(new Date());
             const [showSettings, setShowSettings] = useState(false);
 
+            // 計算民國日期格式
+            const rocDateString = useMemo(() => {
+                const year = now.getFullYear() - 1911;
+                const month = now.getMonth() + 1;
+                const date = now.getDate();
+                const day = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
+                return `民國 ${year} 年 ${month} 月 ${date} 日 (星期${day})`;
+            }, [now]);
+            
+            // 初始化 10 節課
+            const [schedule, setSchedule] = useState(() => {
+                const saved = localStorage.getItem('exam_v10_data');
+                if (saved) return JSON.parse(saved);
+                return Array.from({ length: 10 }, (_, i) => ({
+                    id: i + 1,
+                    subject: `第 ${i + 1} 節`,
+                    start: `${String(8 + i).padStart(2, '0')}:10`,
+                    end: `${String(8 + i).padStart(2, '0')}:50`,
+                    audio: null
+                }));
+            });
+
+            const [attendance, setAttendance] = useState(() => {
+                const saved = localStorage.getItem('exam_v10_attendance');
+                return saved ? JSON.parse(saved) : { expected: '', actual: '', absent: '' };
+            });
+
+            const [reminders, setReminders] = useState(() => {
+                const saved = localStorage.getItem('exam_v10_reminders');
+                return saved ? JSON.parse(saved) : {
+                    exam: ["保持安靜，細心檢查", "不可交談，不可東張西望", "記得寫上姓名座號"],
+                    break: ["準備下節文具", "桌面淨空，喝水上廁所", "保持走廊安靜"]
+                };
+            });
+
+            const audioRefs = useRef({});
+            const [playingId, setPlayingId] = useState(null);
+
+            useEffect(() => {
+                const timer = setInterval(() => setNow(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('exam_v10_data', JSON.stringify(schedule));
+                localStorage.setItem('exam_v10_attendance', JSON.stringify(attendance));
+                localStorage.setItem('exam_v10_reminders', JSON.stringify(reminders));
+            }, [schedule, attendance, reminders]);
+
+            const currentStatus = useMemo(() => {
+                const totalMinutes = now.getHours() * 60 + now.getMinutes();
+                for (let i = 0; i < schedule.length; i++) {
+                    const [sh, sm] = schedule[i].start.split(':').map(Number);
+                    const [eh, em] = schedule[i].end.split(':').map(Number);
+                    const start = sh * 60 + sm;
+                    const end = eh * 60 + em;
+                    if (totalMinutes >= start && totalMinutes < end) {
+                        return { type: 'exam', idx: i, remain: end - totalMinutes, total: end - start };
+                    }
+                }
+                return { type: 'idle' };
+            }, [now, schedule]);
+
+            const handleAudio = (e, id) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        setSchedule(prev => prev.map(item => item.id === id ? { ...item, audio: ev.target.result } : item));
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            return (
+                <div className="w-screen h-screen flex flex-col bg-slate-900">
+                    <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} reminders={reminders} setReminders={setReminders} />
+
+                    {/* 上方：時間看板 */}
+                    <div className="h-1/3 flex bg-white border-b shadow-2xl z-10">
+                        <div className="w-1/3 bg-slate-900 text-white flex flex-col items-center justify-center border-r border-slate-700">
+                            <div className="text-xl text-slate-400 mb-2 font-bold tracking-widest">{rocDateString}</div>
+                            <div className="text-[12vh] font-mono font-bold leading-none tabular-nums text-emerald-400">
+                                {now.toLocaleTimeString('zh-TW', { hour12: false })}
+                            </div>
+                        </div>
+                        <div className="w-2/3 p-8 flex items-center justify-center">
+                            {currentStatus.type === 'exam' ? (
+                                <div className="w-full">
+                                    <div className="text-4xl font-black text-slate-800 mb-6 flex justify-between items-end">
+                                        <span>{schedule[currentStatus.idx].subject} - 考試中</span>
+                                        <span className="text-2xl text-slate-400">剩餘 {currentStatus.remain} 分鐘</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-24 rounded-3xl overflow-hidden border-4 border-slate-100 relative shadow-inner">
+                                        <div className="bg-emerald-500 h-full transition-all duration-1000" style={{width: `${(currentStatus.remain/currentStatus.total)*100}%`}}></div>
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-4xl text-slate-800 mix-blend-overlay">
+                                            剩餘約 {currentStatus.remain} 分鐘
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-6xl font-black text-slate-200 italic tracking-tighter uppercase">Waiting for Exam...</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 下方：主控區 */}
+                    <div className="h-2/3 flex bg-slate-50 overflow-hidden">
+                        {/* 列表區 */}
+                        <div className="w-[55%] flex flex-col border-r bg-white shadow-xl">
+                            <div className="flex-1 overflow-y-auto schedule-list p-4 space-y-3">
+                                {schedule.map((item, i) => (
+                                    <div key={item.id} className={`flex items-center p-5 rounded-3xl border-2 transition-all ${currentStatus.idx === i ? 'bg-amber-50 border-amber-400 shadow-md ring-4 ring-amber-100/50' : 'bg-white border-slate-100'}`}>
+                                        <input value={item.subject} onChange={e => {
+                                            const newS = [...schedule]; newS[i].subject = e.target.value; setSchedule(newS);
+                                        }} className="w-40 font-black text-3xl bg-transparent outline-none text-slate-700" />
+                                        
+                                        <div className="flex-1 flex justify-center items-center gap-4">
+                                            <input type="time" value={item.start} onChange={e => {
+                                                const newS = [...schedule]; newS[i].start = e.target.value; setSchedule(newS);
+                                            }} className="text-3xl font-mono font-bold text-slate-500 hover:text-blue-600 transition-colors" />
+                                            <span className="text-2xl font-bold text-slate-300">➜</span>
+                                            <input type="time" value={item.end} onChange={e => {
+                                                const newS = [...schedule]; newS[i].end = e.target.value; setSchedule(newS);
+                                            }} className="text-3xl font-mono font-bold text-slate-500 hover:text-blue-600 transition-colors" />
+                                        </div>
+
+                                        <div className="flex items-center gap-3 ml-4">
+                                            <input type="file" id={`aud-${item.id}`} className="hidden" onChange={e => handleAudio(e, item.id)} accept="audio/*" />
+                                            {item.audio ? (
+                                                <button onClick={() => {
+                                                    const a = audioRefs.current[item.id];
+                                                    if(playingId === item.id) { a.pause(); setPlayingId(null); }
+                                                    else { a.play(); setPlayingId(item.id); }
+                                                }} className={`w-12 h-12 flex items-center justify-center rounded-2xl text-white shadow-lg transition-transform active:scale-90 ${playingId===item.id?'bg-rose-500 animate-pulse':'bg-emerald-500'}`}>
+                                                    {playingId===item.id ? <Pause size={28}/> : <Play size={28}/>}
+                                                    <audio ref={el => audioRefs.current[item.id] = el} src={item.audio} onEnded={()=>setPlayingId(null)} />
+                                                </button>
+                                            ) : (
+                                                <label htmlFor={`aud-${item.id}`} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-blue-500 cursor-pointer border-2 border-dashed border-slate-200 rounded-2xl"><Upload size={24}/></label>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* 統計與設定按鈕 */}
+                            <div className="h-28 bg-slate-900 flex p-4 gap-4 items-center">
+                                <div className="flex-1 bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                    <div className="text-xs text-slate-400 font-bold mb-1">應到</div>
+                                    <input value={attendance.expected} onChange={e=>setAttendance({...attendance, expected:e.target.value})} className="w-full bg-transparent text-white text-3xl font-black text-center outline-none" placeholder="0" />
+                                </div>
+                                <div className="flex-1 bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                    <div className="text-xs text-emerald-400 font-bold mb-1">實到</div>
+                                    <input value={attendance.actual} onChange={e=>setAttendance({...attendance, actual:e.target.value})} className="w-full bg-transparent text-white text-3xl font-black text-center outline-none" placeholder="0" />
+                                </div>
+                                <div className="flex-[2] bg-white/10 rounded-2xl p-2 border border-white/10 flex flex-col items-center">
+                                    <div className="text-xs text-rose-400 font-bold mb-1">缺席座號</div>
+                                    <input value={attendance.absent} onChange={e=>setAttendance({...attendance, absent:e.target.value})} className="w-full bg-transparent text-white text-xl font-bold text-center outline-none" placeholder="None" />
+                                </div>
+                                <button onClick={() => setShowSettings(true)} className="w-16 h-16 flex items-center justify-center bg-blue-600 text-white rounded-2xl hover:bg-blue-500 shadow-lg transition-all active:rotate-90">
+                                    <Settings size={32} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 右側：超大輪播提示 */}
+                        <div className="w-[45%] bg-[#fffdf0] flex flex-col items-center justify-center p-12 text-center relative">
+                            <div className="absolute top-8 left-8 right-8 border-b-4 border-slate-200 pb-4">
+                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase"><!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室期末考監考系統 - 10節課放大版</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: system-ui; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        /* 確保時間輸入框的點擊範圍正確 */
+        input[type="time"] {
+            position: relative;
+            cursor: pointer;
+            padding: 4px 8px;
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+        .schedule-list { scroll-behavior: smooth; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- 圖示組件 ---
+        const Icon = ({ children, size = 24, className = "", onClick, disabled }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick} style={{ cursor: onClick && !disabled ? 'pointer' : 'default', opacity: disabled ? 0.3 : 1 }}>
+                {children}
+            </svg>
+        );
+        const Play = (props) => <Icon {...props}><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
+        const Pause = (props) => <Icon {...props}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></Icon>;
+        const Upload = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Icon>;
+        const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
+        const Settings = (props) => <Icon {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></Icon>;
+        const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+
+        // --- 設定視窗 ---
+        const SettingsModal = ({ show, onClose, reminders, setReminders }) => {
+            if (!show) return null;
+            const handleReminderChange = (mode, index, val) => {
+                const newReminders = {...reminders};
+                newReminders[mode][index] = val;
+                setReminders(newReminders);
+            };
+            return (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-lg">
+                    <div className="bg-white w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-3xl p-8 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4 border-b">
+                            <h2 className="text-3xl font-bold text-slate-700">輪播訊息設定</h2>
+                            <button onClick={onClose} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold">儲存並關閉</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-8">
+                            <div className="bg-rose-50 p-6 rounded-2xl">
+                                <h3 className="font-bold text-rose-600 mb-4 text-xl flex items-center gap-2">考試中訊息 <Plus size={20} className="cursor-pointer" onClick={() => setReminders({...reminders, exam: [...reminders.exam, "新提醒"]})}/></h3>
+                                {reminders.exam.map((text, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-3 items-center bg-white p-3 rounded-xl border shadow-sm">
+                                        <input value={text} onChange={(e) => handleReminderChange('exam', idx, e.target.value)} className="flex-1 outline-none" />
+                                        <Trash2 size={20} onClick={() => {
+                                            const newList = [...reminders.exam]; newList.splice(idx,1); setReminders({...reminders, exam: newList});
+                                        }} className="text-slate-300 hover:text-red-500 cursor-pointer" />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="bg-emerald-50 p-6 rounded-2xl">
+                                <h3 className="font-bold text-emerald-600 mb-4 text-xl flex items-center gap-2">休息中訊息 <Plus size={20} className="cursor-pointer" onClick={() => setReminders({...reminders, break: [...reminders.break, "新提醒"]})}/></h3>
+                                {reminders.break.map((text, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-3 items-center bg-white p-3 rounded-xl border shadow-sm">
+                                        <input value={text} onChange={(e) => handleReminderChange('break', idx, e.target.value)} className="flex-1 outline-none" />
+                                        <Trash2 size={20} onClick={() => {
+                                            const newList = [...reminders.break]; newList.splice(idx,1); setReminders({...reminders, break: newList});
+                                        }} className="text-slate-300 hover:text-red-500 cursor-pointer" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ExamSystem = () => {
+            const [now, setNow] = useState(new Date());
+            const [showSettings, setShowSettings] = useState(false);
+
+            // 計算民國日期格式
+            const rocDateString = useMemo(() => {
+                const year = now.getFullYear() - 1911;
+                const month = now.getMonth() + 1;
+                const date = now.getDate();
+                const day = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
+                return `民國 ${year} 年 ${month} 月 ${date} 日 (星期${day})`;
+            }, [now]);
+
             // 初始化 10 節課
             const [schedule, setSchedule] = useState(() => {
                 const saved = localStorage.getItem('exam_v10_data');
@@ -255,7 +530,311 @@
                         {/* 右側：超大輪播提示 */}
                         <div className="w-[45%] bg-[#fffdf0] flex flex-col items-center justify-center p-12 text-center relative">
                             <div className="absolute top-8 left-8 right-8 border-b-4 border-slate-200 pb-4">
-                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase">Attention</div>
+                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase"><!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室期末考監考系統 - 10節課放大版</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: system-ui; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        /* 確保時間輸入框的點擊範圍正確 */
+        input[type="time"] {
+            position: relative;
+            cursor: pointer;
+            padding: 4px 8px;
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+        .schedule-list { scroll-behavior: smooth; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- 圖示組件 ---
+        const Icon = ({ children, size = 24, className = "", onClick, disabled }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} onClick={onClick} style={{ cursor: onClick && !disabled ? 'pointer' : 'default', opacity: disabled ? 0.3 : 1 }}>
+                {children}
+            </svg>
+        );
+        const Play = (props) => <Icon {...props}><polygon points="5 3 19 12 5 21 5 3"/></Icon>;
+        const Pause = (props) => <Icon {...props}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></Icon>;
+        const Upload = (props) => <Icon {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Icon>;
+        const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
+        const Settings = (props) => <Icon {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></Icon>;
+        const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+
+        // --- 設定視窗 ---
+        const SettingsModal = ({ show, onClose, reminders, setReminders }) => {
+            if (!show) return null;
+            const handleReminderChange = (mode, index, val) => {
+                const newReminders = {...reminders};
+                newReminders[mode][index] = val;
+                setReminders(newReminders);
+            };
+            return (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-lg">
+                    <div className="bg-white w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-3xl p-8 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-4 border-b">
+                            <h2 className="text-3xl font-bold text-slate-700">輪播訊息設定</h2>
+                            <button onClick={onClose} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold">儲存並關閉</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-8">
+                            <div className="bg-rose-50 p-6 rounded-2xl">
+                                <h3 className="font-bold text-rose-600 mb-4 text-xl flex items-center gap-2">考試中訊息 <Plus size={20} className="cursor-pointer" onClick={() => setReminders({...reminders, exam: [...reminders.exam, "新提醒"]})}/></h3>
+                                {reminders.exam.map((text, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-3 items-center bg-white p-3 rounded-xl border shadow-sm">
+                                        <input value={text} onChange={(e) => handleReminderChange('exam', idx, e.target.value)} className="flex-1 outline-none" />
+                                        <Trash2 size={20} onClick={() => {
+                                            const newList = [...reminders.exam]; newList.splice(idx,1); setReminders({...reminders, exam: newList});
+                                        }} className="text-slate-300 hover:text-red-500 cursor-pointer" />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="bg-emerald-50 p-6 rounded-2xl">
+                                <h3 className="font-bold text-emerald-600 mb-4 text-xl flex items-center gap-2">休息中訊息 <Plus size={20} className="cursor-pointer" onClick={() => setReminders({...reminders, break: [...reminders.break, "新提醒"]})}/></h3>
+                                {reminders.break.map((text, idx) => (
+                                    <div key={idx} className="flex gap-2 mb-3 items-center bg-white p-3 rounded-xl border shadow-sm">
+                                        <input value={text} onChange={(e) => handleReminderChange('break', idx, e.target.value)} className="flex-1 outline-none" />
+                                        <Trash2 size={20} onClick={() => {
+                                            const newList = [...reminders.break]; newList.splice(idx,1); setReminders({...reminders, break: newList});
+                                        }} className="text-slate-300 hover:text-red-500 cursor-pointer" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ExamSystem = () => {
+            const [now, setNow] = useState(new Date());
+            const [showSettings, setShowSettings] = useState(false);
+
+            // 計算民國日期格式
+            const rocDateString = useMemo(() => {
+                const year = now.getFullYear() - 1911;
+                const month = now.getMonth() + 1;
+                const date = now.getDate();
+                const day = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
+                return `民國 ${year} 年 ${month} 月 ${date} 日 (星期${day})`;
+            }, [now]);
+
+            // 初始化 10 節課
+            const [schedule, setSchedule] = useState(() => {
+                const saved = localStorage.getItem('exam_v10_data');
+                if (saved) return JSON.parse(saved);
+                return Array.from({ length: 10 }, (_, i) => ({
+                    id: i + 1,
+                    subject: `第 ${i + 1} 節`,
+                    start: `${String(8 + i).padStart(2, '0')}:10`,
+                    end: `${String(8 + i).padStart(2, '0')}:50`,
+                    audio: null
+                }));
+            });
+
+            const [attendance, setAttendance] = useState(() => {
+                const saved = localStorage.getItem('exam_v10_attendance');
+                return saved ? JSON.parse(saved) : { expected: '', actual: '', absent: '' };
+            });
+
+            const [reminders, setReminders] = useState(() => {
+                const saved = localStorage.getItem('exam_v10_reminders');
+                return saved ? JSON.parse(saved) : {
+                    exam: ["保持安靜，細心檢查", "不可交談，不可東張西望", "記得寫上姓名座號"],
+                    break: ["準備下節文具", "桌面淨空，喝水上廁所", "保持走廊安靜"]
+                };
+            });
+
+            const audioRefs = useRef({});
+            const [playingId, setPlayingId] = useState(null);
+
+            useEffect(() => {
+                const timer = setInterval(() => setNow(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('exam_v10_data', JSON.stringify(schedule));
+                localStorage.setItem('exam_v10_attendance', JSON.stringify(attendance));
+                localStorage.setItem('exam_v10_reminders', JSON.stringify(reminders));
+            }, [schedule, attendance, reminders]);
+
+            const currentStatus = useMemo(() => {
+                const totalMinutes = now.getHours() * 60 + now.getMinutes();
+                for (let i = 0; i < schedule.length; i++) {
+                    const [sh, sm] = schedule[i].start.split(':').map(Number);
+                    const [eh, em] = schedule[i].end.split(':').map(Number);
+                    const start = sh * 60 + sm;
+                    const end = eh * 60 + em;
+                    if (totalMinutes >= start && totalMinutes < end) {
+                        return { type: 'exam', idx: i, remain: end - totalMinutes, total: end - start };
+                    }
+                }
+                return { type: 'idle' };
+            }, [now, schedule]);
+
+            const handleAudio = (e, id) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        setSchedule(prev => prev.map(item => item.id === id ? { ...item, audio: ev.target.result } : item));
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            return (
+                <div className="w-screen h-screen flex flex-col bg-slate-900">
+                    <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} reminders={reminders} setReminders={setReminders} />
+
+                    {/* 上方：時間看板 */}
+                    <div className="h-1/3 flex bg-white border-b shadow-2xl z-10">
+                        <div className="w-1/3 bg-slate-900 text-white flex flex-col items-center justify-center border-r border-slate-700">
+                            <div className="text-xl text-slate-400 mb-2 font-bold tracking-widest">DIGITAL MONITOR</div>
+                            <div className="text-[12vh] font-mono font-bold leading-none tabular-nums text-emerald-400">
+                                {now.toLocaleTimeString('zh-TW', { hour12: false })}
+                            </div>
+                        </div>
+                        <div className="w-2/3 p-8 flex items-center justify-center">
+                            {currentStatus.type === 'exam' ? (
+                                <div className="w-full">
+                                    <div className="text-4xl font-black text-slate-800 mb-6 flex justify-between items-end">
+                                        <span>{schedule[currentStatus.idx].subject} - 考試中</span>
+                                        <span className="text-2xl text-slate-400">剩餘 {currentStatus.remain} 分鐘</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-24 rounded-3xl overflow-hidden border-4 border-slate-100 relative shadow-inner">
+                                        <div className="bg-emerald-500 h-full transition-all duration-1000" style={{width: `${(currentStatus.remain/currentStatus.total)*100}%`}}></div>
+                                        <div className="absolute inset-0 flex items-center justify-center font-black text-4xl text-slate-800 mix-blend-overlay">
+                                            剩餘約 {currentStatus.remain} 分鐘
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-6xl font-black text-slate-200 italic tracking-tighter uppercase">Waiting for Exam...</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 下方：主控區 */}
+                    <div className="h-2/3 flex bg-slate-50 overflow-hidden">
+                        {/* 列表區 */}
+                        <div className="w-[55%] flex flex-col border-r bg-white shadow-xl">
+                            <div className="flex-1 overflow-y-auto schedule-list p-4 space-y-3">
+                                {schedule.map((item, i) => (
+                                    <div key={item.id} className={`flex items-center p-5 rounded-3xl border-2 transition-all ${currentStatus.idx === i ? 'bg-amber-50 border-amber-400 shadow-md ring-4 ring-amber-100/50' : 'bg-white border-slate-100'}`}>
+                                        <input value={item.subject} onChange={e => {
+                                            const newS = [...schedule]; newS[i].subject = e.target.value; setSchedule(newS);
+                                        }} className="w-40 font-black text-3xl bg-transparent outline-none text-slate-700" />
+                                        
+                                        <div className="flex-1 flex justify-center items-center gap-4">
+                                            <input type="time" value={item.start} onChange={e => {
+                                                const newS = [...schedule]; newS[i].start = e.target.value; setSchedule(newS);
+                                            }} className="text-3xl font-mono font-bold text-slate-500 hover:text-blue-600 transition-colors" />
+                                            <span className="text-2xl font-bold text-slate-300">➜</span>
+                                            <input type="time" value={item.end} onChange={e => {
+                                                const newS = [...schedule]; newS[i].end = e.target.value; setSchedule(newS);
+                                            }} className="text-3xl font-mono font-bold text-slate-500 hover:text-blue-600 transition-colors" />
+                                        </div>
+
+                                        <div className="flex items-center gap-3 ml-4">
+                                            <input type="file" id={`aud-${item.id}`} className="hidden" onChange={e => handleAudio(e, item.id)} accept="audio/*" />
+                                            {item.audio ? (
+                                                <button onClick={() => {
+                                                    const a = audioRefs.current[item.id];
+                                                    if(playingId === item.id) { a.pause(); setPlayingId(null); }
+                                                    else { a.play(); setPlayingId(item.id); }
+                                                }} className={`w-12 h-12 flex items-center justify-center rounded-2xl text-white shadow-lg transition-transform active:scale-90 ${playingId===item.id?'bg-rose-500 animate-pulse':'bg-emerald-500'}`}>
+                                                    {playingId===item.id ? <Pause size={28}/> : <Play size={28}/>}
+                                                    <audio ref={el => audioRefs.current[item.id] = el} src={item.audio} onEnded={()=>setPlayingId(null)} />
+                                                </button>
+                                            ) : (
+                                                <label htmlFor={`aud-${item.id}`} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-blue-500 cursor-pointer border-2 border-dashed border-slate-200 rounded-2xl"><Upload size={24}/></label>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* 統計與設定按鈕 */}
+                            <div className="h-28 bg-slate-900 flex p-4 gap-4 items-center">
+                                <div className="flex-1 bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                    <div className="text-xs text-slate-400 font-bold mb-1">應到</div>
+                                    <input value={attendance.expected} onChange={e=>setAttendance({...attendance, expected:e.target.value})} className="w-full bg-transparent text-white text-3xl font-black text-center outline-none" placeholder="0" />
+                                </div>
+                                <div className="flex-1 bg-white/10 rounded-2xl p-2 text-center border border-white/10">
+                                    <div className="text-xs text-emerald-400 font-bold mb-1">實到</div>
+                                    <input value={attendance.actual} onChange={e=>setAttendance({...attendance, actual:e.target.value})} className="w-full bg-transparent text-white text-3xl font-black text-center outline-none" placeholder="0" />
+                                </div>
+                                <div className="flex-[2] bg-white/10 rounded-2xl p-2 border border-white/10 flex flex-col items-center">
+                                    <div className="text-xs text-rose-400 font-bold mb-1">缺席座號</div>
+                                    <input value={attendance.absent} onChange={e=>setAttendance({...attendance, absent:e.target.value})} className="w-full bg-transparent text-white text-xl font-bold text-center outline-none" placeholder="None" />
+                                </div>
+                                <button onClick={() => setShowSettings(true)} className="w-16 h-16 flex items-center justify-center bg-blue-600 text-white rounded-2xl hover:bg-blue-500 shadow-lg transition-all active:rotate-90">
+                                    <Settings size={32} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 右側：超大輪播提示 */}
+                        <div className="w-[45%] bg-[#fffdf0] flex flex-col items-center justify-center p-12 text-center relative">
+                            <div className="absolute top-8 left-8 right-8 border-b-4 border-slate-200 pb-4">
+                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase">注意事項</div>
+                            </div>
+                            <div className="text-[8vh] font-black text-slate-800 leading-tight drop-shadow-sm">
+                                {(() => {
+                                    const list = currentStatus.type === 'exam' ? reminders.exam : reminders.break;
+                                    const cycle = Math.floor(now.getSeconds() / 8) % (list.length || 1);
+                                    return list[cycle] || "保持安靜";
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ExamSystem />);
+    </script>
+</body>
+</html></div>
+                            </div>
+                            <div className="text-[8vh] font-black text-slate-800 leading-tight drop-shadow-sm">
+                                {(() => {
+                                    const list = currentStatus.type === 'exam' ? reminders.exam : reminders.break;
+                                    const cycle = Math.floor(now.getSeconds() / 8) % (list.length || 1);
+                                    return list[cycle] || "保持安靜";
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ExamSystem />);
+    </script>
+</body>
+</html></div>
                             </div>
                             <div className="text-[8vh] font-black text-slate-800 leading-tight drop-shadow-sm">
                                 {(() => {
