@@ -102,7 +102,7 @@
                 const year = now.getFullYear() - 1911;
                 const month = String(now.getMonth() + 1).padStart(2, '0');
                 const day = String(now.getDate()).padStart(2, '0');
-                const dayName = ['日', '一', '二', '三', '四', '五', '六'][adjustedTime.getDay()];
+                const dayName = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
                 return `民國 ${year} 年 ${month} 月 ${day} 日 星期${dayName}`;
             }, [now]);
 
