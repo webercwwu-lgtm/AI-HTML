@@ -99,7 +99,7 @@
                 const year = now.getFullYear() - 1911;
                 const month = String(now.getMonth() + 1).padStart(2, '0');
                 const day = String(now.getDate()).padStart(2, '0');
-                return `${year} 年 ${month} 月 ${day} 日`;
+                return `民國 ${year} 年 ${month} 月 ${day} 日`;
             }, [now]);
 
             const [schedule, setSchedule] = useState(() => {
@@ -108,8 +108,8 @@
                 return Array.from({ length: 10 }, (_, i) => ({
                     id: i + 1,
                     subject: `第 ${i + 1} 節`,
-                    start: `${String(8 + i).padStart(2, '0')}:10`,
-                    end: `${String(8 + i).padStart(2, '0')}:50`,
+                    start: `${String(9 + i).padStart(2, '0')}:00`,
+                    end: `${String(9 + i).padStart(2, '0')}:45`,
                     audio: null
                 }));
             });
@@ -122,8 +122,8 @@
             const [reminders, setReminders] = useState(() => {
                 const saved = localStorage.getItem('exam_v10_reminders');
                 return saved ? JSON.parse(saved) : {
-                    exam: ["保持安靜，細心檢查", "不可交談，不可東張西望", "記得寫上姓名座號"],
-                    break: ["準備下節文具", "桌面淨空，喝水上廁所", "保持走廊安靜"]
+                    exam: ["考卷記得寫上班級姓名座號", "有問題舉手問老師，需要撿東西請監考老師幫忙", "不會寫的題目跳過寫會的題目", "耐心、細心、小心", "考卷有不會的問題等出題老師來了再問", "不要轉頭玩東西，寫完多檢查", "檢查完再檢查或趴下休息"],
+                    break: ["等監考老師點完再離開座位下課", "利用下課準備下個科目與文具用品", "提早上廁所喝水", "桌面淨空", "準備考試、收拾位置、坐在位置上"]
                 };
             });
 
@@ -193,7 +193,7 @@
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-6xl font-black text-slate-200 italic tracking-tighter uppercase">休息...</div>
+                                <div className="text-6xl font-black text-slate-200 italic tracking-tighter uppercase">休息 ...</div>
                             )}
                         </div>
                     </div>
@@ -260,7 +260,7 @@
                         {/* 右側：超大輪播提示 */}
                         <div className="w-[45%] bg-[#fffdf0] flex flex-col items-center justify-center p-12 text-center relative">
                             <div className="absolute top-8 left-8 right-8 border-b-4 border-slate-200 pb-4">
-                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase">Examination Notice</div>
+                                <div className="text-3xl font-black text-slate-300 tracking-[1em] uppercase"> 注意事項 </div>
                             </div>
                             <div className="text-[8vh] font-black text-slate-800 leading-tight drop-shadow-sm">
                                 {currentStatus.type === 'exam' 
